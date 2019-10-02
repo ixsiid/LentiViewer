@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+        }
+
+        body {
+            background: lightgray;
+        }
+
+        #navi {
+            position: fixed;
+            bottom: 0.3em;
+            left: 0;
+            width: 100%;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        #navi img {
+            display: inline-block;
+            width: 11vw;
+            height: 11vw;
+            border-radius: 5.5vw;
+            background-color: #444;
+            color: white;
+            font-weight: bold;
+            font-size: 5vw;
+            overflow: hidden;
+            margin: 0.3em;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        li {
+            display: inline-block;
+            font-size: 3vh;
+            padding: 1vh 2vh;
+            border: 1px solid black;
+            background-color: white;
+            margin: 1vh;
+        }
+
+        #view_root {
+            min-height: 100vh;
+            width: 100%;
+            align-items: center;
+            display: flex;
+            background-color: black;
+        }
+
+        #view_root img {
+            width: 100%;
+        }
+    </style>
+    <script>
+        function print(text) {
+            document.getElementById('print').appendChild(document.createTextNode(text));
+        }
+
+        window.addEventListener('load', () => {
+            const view = document.getElementById('view');
+            fetch('./image/')
+                .then(res => res.text())
+                .then(text => {
+                    const dom = new DOMParser().parseFromString(text, 'text/html');
+                    const files = [].map.call(dom.querySelectorAll('a'), x => x.href).filter(x => x.endsWith('.png'));
+                    const ul = document.getElementById('image');
+                    files.map(x => {
+                        let name = x.split('/').pop();
+                        const f = `./image/${name}`;
+                        name = name.substring(0, name.lastIndexOf('.'));
+                        const li = document.createElement('li');
+                        li.addEventListener('click', () => {
+                            view.setAttribute('src', f);
+                        }, false);
+                        li.appendChild(document.createTextNode(name));
+                        ul.appendChild(li);
+                    })
+                })
+                .catch(error => document.getElementById('print').innerText = error);
+        }, false);
+
+        function full() {
+            window.location = document.getElementById('view').getAttribute('src');
+        }
+
+        function center() {
+            const y = (e => e.offsetTop + e.offsetHeight)(document.getElementById('view'));
+            window.scrollTo(0, y);
+        }
+    </script>
+</head>
+
+<body>
+    <p id="navi"><img src="icon/full.png" alt="Fullscreen" onclick="full();" /><img src="icon/center.png" alt="Center"
+            onclick="center();" /><img src="icon/top.png" alt="Top" onclick="window.scrollTo(0, 0);" /></p>
+    <ul id="image">
+    </ul>
+    <p id="view_root"><img id="view" src="" /></p>
+    <pre id="print"></pre>
+</body>
+
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+        }
+
+        #navi {
+            position: fixed;
+            bottom: 0.3em;
+            left: 0;
+            width: 100%;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        #navi img {
+            display: inline-block;
+            width: 11vw;
+            height: 11vw;
+            border-radius: 5.5vw;
+            background-color: #444;
+            color: white;
+            font-weight: bold;
+            font-size: 5vw;
+            overflow: hidden;
+            margin: 0.3em;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        #image {
+            transform: translate(-100%, 0);
+            position: fixed;
+            top: 1vh;
+            transition: all 300ms 0s ease;
+            max-width: calc(100vw - 5vh - 3px - 5vh);
+        }
+
+        #tab {
+            color: white;
+            font-size: 5vh;
+            background: lightgray;
+            border: 1px solid lightgray;
+            left: 100%;
+            position: absolute;
+            border-radius: 0 1vh 1vh 0;
+            width: 3.5vh;
+            text-align: center;
+        }
+
+        ul {
+            background: lightgray;
+            border: 1px solid lightgray;
+            border-radius: 0 0 1vh 0;
+            list-style-type: none;
+        }
+
+        li {
+            font-size: 3vh;
+            padding: 1vh 2vh;
+            border: 1px solid black;
+            background-color: white;
+            margin: 1vh;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-align: right;
+            direction: rtl;
+            transition: all 300ms 0s ease;
+        }
+
+        li.active {
+            background-color: lightgray;
+        }
+
+        li:first-child {
+            padding: 0.5vh;
+            border: none;
+            font-weight: bold;
+            color:black;
+            font-size: 2vh;
+            background-color: inherit;
+        }
+
+        li:first-child a {
+            text-decoration: none;
+        }
+
+        li a:visited {
+            color: inherit;
+        }
+
+        #view_root {
+            min-height: 100vh;
+            width: 100%;
+            align-items: center;
+            display: flex;
+            background-color: black;
+        }
+
+        #view_root img {
+            width: 100%;
+        }
+
+        #bottom {
+            height: 100px;
+        }
+
+        #bottom2 {
+            height: 100px;
+            background-color: red;
+        }
+    </style>
+    <script>
+        const timer = {};
+        window.addEventListener('load', () => {
+            const view = document.getElementById('view');
+            const initial = window.location.search.substring(1);
+            fetch('./image/')
+                .then(res => res.text())
+                .then(text => {
+                    const dom = new DOMParser().parseFromString(text, 'text/html');
+                    const files = [].map.call(dom.querySelectorAll('a'), x => x.href).filter(x => x.endsWith('.png'));
+                    const ul = document.getElementById('list');
+                    files.map(x => {
+                        let name = x.split('/').pop();
+                        const f = `./image/${name}`;
+                        name = name.substring(0, name.lastIndexOf('.'));
+                        const li = document.createElement('li');
+                        li.addEventListener('click', () => {
+                            [].map.call(document.getElementsByClassName('active'), x => x.classList.remove('active'));
+                            li.classList.add('active');
+                            view.setAttribute('src', f);
+                            history.pushState({}, name, '?' + f);
+                            tab.hide();
+                        }, false);
+                        if (f == initial) li.classList.add('active');
+                        li.appendChild(document.createTextNode(name));
+                        ul.appendChild(li);
+                    })
+                })
+                .catch(error => document.getElementById('print').innerText = error);
+            view.setAttribute('src', initial);
+
+            document.getElementById('tab').addEventListener('click', () => {
+                clearTimeout(timer.hide);
+                tab();
+                timer.hide = setTimeout(tab.hide, 5000);
+            }, false);
+        }, false);
+
+        const tab = () => {
+            document.getElementById('image').style.transform = `translate(${tab.shown ? '-100%' : '0'}, 0)`;
+            return tab.shown = !tab.shown;
+        };
+        tab.shown = false;
+        tab.show = () => { tab.shown = false; tab(); }
+        tab.hide = () => { tab.shown = true; tab(); }
+    </script>
+</head>
+
+<body>
+    <div id="image">
+        <p id="tab">&#x2af6;</p>
+        <ul id="list">
+            <li><a href="calibration.html">Calibration</a></li>
+            <li><a href="view.html">View</a></li>
+        </ul>
+    </div>
+    <p id="view_root"><img id="view" src="" /></p>
+</body>
+
+</html>

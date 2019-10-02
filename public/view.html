@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        html,
+        body,
+        #content {
+            width: 100%;
+            height: 100%;
+        }
+
+        #navi {
+            position: fixed;
+            bottom: 0.3em;
+            left: 0;
+            width: 100%;
+            text-align: right;
+            vertical-align: middle;
+            color: white;
+            font-weight: bold;
+        }
+
+    </style>
+
+    <script src="script/switch.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/105/three.min.js"></script>
+    <script type="module">
+        import { quat, mat4, vec3 } from './util/gl-matrix/src/index.js';
+        import PlaneFactory from './lenti_mask/renderer/plane.js';
+
+        const game = {};
+        const items = [];
+        const cameras = [];
+
+        function update() {
+            items.map(x => x.rotation.y += 0.01);
+
+            game.renderer.clear(true, true, false);
+
+            for (let i = 0; i < lenti.viewCount; i++) {
+                game.context.stencilFunc(game.context.EQUAL, i, ~0);
+                game.renderer.render(game.scene, cameras[i]);
+            }
+
+            game.context.stencilFunc(game.context.ALWAYS, 0, ~0);
+
+            requestAnimationFrame(update);
+        }
+
+        const calculateThreshold = (deltaPhase) => {
+            const ca = Math.cos(deltaPhase);
+            const sa = Math.sin(deltaPhase);
+
+            return sa / Math.sqrt(2 * (1 - ca));
+        };
+
+        function lenti_calibration(pixelDensity) {
+            const dpl = 7.59375 / pixelDensity;
+            const viewCount = 45;
+            const frequency = 2 * Math.PI / dpl;
+            const deltaPhase = 2 * Math.PI / viewCount;
+            const threshold = calculateThreshold(2 * Math.PI / (viewCount - 1));
+            const slantAngleDegrees = 76.95;
+            const deltaY = frequency / Math.tan(slantAngleDegrees / 180 * Math.PI);
+            const viewAngle = 60;
+            const viewAngleRadians = viewAngle / 180 * Math.PI;
+            const dViewAngleRadians = viewAngleRadians / viewCount;
+
+            return {
+                dpl, viewCount, frequency, deltaPhase, threshold, slantAngleDegrees, deltaY,
+                viewAngle, viewAngleRadians, dViewAngleRadians,
+            };
+        }
+
+        const lenti = lenti_calibration(3);
+
+        async function set_stencil_buffer(renderer) {
+            const gl = renderer.getContext();
+            gl.enable(gl.STENCIL_TEST);
+            gl.clearStencil(255);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+            // シェーダー準備
+            const createShader = (type, source) => {
+                const shader = Switch(type, {
+                    'x-shader/x-fragment': () => gl.createShader(gl.FRAGMENT_SHADER),
+                    'x-shader/x-vertex': () => gl.createShader(gl.VERTEX_SHADER),
+                }, null, [
+                    `シェーダータイプが不正です。`,
+                    `シェーダータイプは、'x-shader/x-fragment'か'x-shader/x-vertex'のいずれかです。`
+                ]);
+
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+
+                // コンパイルが成功したかを確認
+                Throw(!gl.getShaderParameter(shader, gl.COMPILE_STATUS), [
+                    `シェーダーコンパイルエラー`,
+                    `${gl.getShaderInfoLog(shader)}`,
+                ]);
+
+                const attributes = source.split('\n')
+                    .filter(x => x.indexOf('attribute ') == 0)
+                    .map(x => x.split(' ').pop().split(';')[0]);
+
+                const uniforms = source.split('\n')
+                    .filter(x => x.indexOf('uniform ') == 0)
+                    .map(x => x.split(' ').pop().split(';')[0]);
+
+                return { shader, attributes, uniforms };
+            };
+
+            const shaderFiles = {
+                'x-shader/x-fragment': 'lenti_mask/fragment.frag',
+                'x-shader/x-vertex': 'lenti_mask/vertex.vert',
+            };
+
+            const shader = await Promise.all(Object.keys(shaderFiles).map(async type => {
+                const source = await fetch(shaderFiles[type]).then(x => x.text());
+                return createShader(type, source);
+            })).then(shadersInfo => {
+                const shaderProgram = gl.createProgram();
+                shadersInfo.map(shaderInfo => gl.attachShader(shaderProgram, shaderInfo.shader));
+                gl.linkProgram(shaderProgram);
+
+                if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+                    Throw(`シェーダープログラムを初期化できません。: ${k}`);
+                }
+
+                gl.useProgram(shaderProgram);
+                const attribLocations = {};
+                const uniformLocations = {};
+                shadersInfo.map(shaderInfo => {
+                    shaderInfo.attributes.map(x => {
+                        const attribute = gl.getAttribLocation(shaderProgram, x);
+                        attribLocations[x] = attribute;
+                    });
+                    shaderInfo.uniforms.map(x => {
+                        const uniform = gl.getUniformLocation(shaderProgram, x);
+                        uniformLocations[x] = uniform;
+                    });
+                });
+
+                return {
+                    program: shaderProgram,
+                    attribLocations,
+                    uniformLocations,
+                };
+            });
+
+            // ステンシルバッファー作り
+            const mask = PlaneFactory(gl, shader)
+                .size(2.0, 2.0)
+                .transform({ offset: [0.0, 0.0, 0.0], rotation: [0.0, 0.0, 0.0, 1.0], scale: [1.0, 1.0, 1.0] })
+                .create();
+
+            const mask_camera = mat4.ortho([], -1, 1, -1, 1, -1, 1);
+
+            gl.depthMask(false);
+            gl.colorMask(false, false, false, false);
+
+            for (let i = 0; i < lenti.viewCount; i++) {
+                const index = i - 0.5 * (lenti.viewCount - 1);
+
+                gl.stencilFunc(gl.ALWAYS, i, ~0);
+                gl.stencilOp(gl.KEEP, gl.REPLACE, gl.REPLACE);
+                mask.render(mask_camera, [], (context, shader) => {
+                    context.uniform1f(shader.uniformLocations.uFrequency, lenti.frequency);
+                    context.uniform1f(shader.uniformLocations.uThreshold, lenti.threshold);
+                    context.uniform1f(shader.uniformLocations.uOffsetX, lenti.deltaPhase * index + Math.PI * lenti.frequency);
+                    context.uniform1f(shader.uniformLocations.uPhaseDeltaY, lenti.deltaY);
+                });
+            }
+
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+            gl.depthMask(true);
+            gl.colorMask(true, true, true, true);
+
+            return gl;
+        }
+
+
+        window.addEventListener('load', async () => {
+            const content = document.querySelector('#content');
+            const { width, height } = (() => {
+                const bounds = content.getClientRects()[0];
+                return { width: bounds.width, height: bounds.height };
+            })();
+
+            game.renderer = new THREE.WebGLRenderer({
+                canvas: content,
+                preserveDrawingBuffer: true,
+            });
+            game.renderer.autoClear = false;
+            game.renderer.setPixelRatio(window.devicePixelRatio);
+            game.renderer.setSize(width, height);
+
+            game.context = await set_stencil_buffer(game.renderer);
+
+            game.scene = new THREE.Scene();
+                        
+            for (let i = 0; i < lenti.viewCount; i++) {
+                const rotate = lenti.viewAngleRadians / 2 - i * lenti.dViewAngleRadians;
+
+                const camera = new THREE.PerspectiveCamera(45, width / height);
+                camera.position.set(1000* Math.sin(rotate), 0, 1000*Math.cos(rotate));
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+                cameras.push(camera);
+            }
+
+            const geometry = new THREE.BoxGeometry(400, 400, 400);
+            const material = new THREE.MeshNormalMaterial();
+            const box = new THREE.Mesh(geometry, material);
+            game.scene.add(box);
+
+            items.push(box);
+
+            update();
+        }, false);
+    </script>
+</head>
+
+<body>
+    <p id="navi"><a href="app.html">App</a></p>
+    <canvas id="content"></canvas>
+</body>
+
+</html>

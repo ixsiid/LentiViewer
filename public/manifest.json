@@ -1,0 +1,14 @@
+{
+    "short_name": "Lenti Viewer",
+    "name": "Lenti Viewer ++",
+    "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "256x256",
+            "type": "image/png"
+        }
+    ],
+    "start_url": "/app.html",
+    "display": "fullscreen",
+    "orientation": "portrait"
+}

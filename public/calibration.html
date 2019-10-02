@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Calibration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+        }
+
+        table {
+            border: none;
+            border-collapse: collapse;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            table-layout: fixed;
+            width: 100vw;
+            background-color: white;
+        }
+
+        #header {
+            position: fixed;
+            top: 0;
+        }
+
+        #header button {
+            width: 10vw;
+            height: 10vw;
+            margin: 2vw;
+            font-size: 4vw;
+        }
+
+
+        #footer {
+            position: fixed;
+            bottom: 0;
+            font-size: 5vw;
+        }
+
+        #footer button {
+            padding: 1vw 3vw;
+        }
+
+        #footer .parameter {
+            text-align: left;
+            margin: 1vw;
+            font-size: 8vw;
+        }
+
+        #footer .parameter td:first-child {
+            text-align: right;
+        }
+        #footer .parameter td:first-child::after {
+            content: ':';
+            margin: auto 1.5vw;
+        }
+
+        #root {
+            height: 100vh;
+            width: 100%;
+            align-items: center;
+            display: flex;
+            background-color: black;
+        }
+
+        #root img {
+            width: 100%;
+        }
+
+        #view a:visited {
+            color:inherit;
+        }
+        #view a {
+            text-decoration: none;
+        }
+        #view {
+            background-color: white;
+            color: black;
+            margin: 1vh;
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        // 視点数を変えるときは調整する。
+        // DPLの調整がちょうどうまくいかないときなど。
+        const view_count = 32;
+    
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        // キャリブレーションパラメータ
+        const parameter = {
+            dpl: Math.floor((440.0 / 60.0) * view_count) / view_count,
+            x: 0.0,
+            angle: 90.0,
+        };
+        const range = {
+            dpl: [4, 8],
+            x: [-5, 5],
+            angle: [60, 120],
+        };
+        Object.defineProperty(parameter, 'canvas', {
+            writable: true,
+            value: null,
+        });
+
+        const h = parseInt((height / 2).toFixed(0));
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('canvas');
+            canvas.setAttribute('width', width);
+            canvas.setAttribute('height', h);
+            parameter.canvas = canvas;
+            stripe();
+        }, false);
+
+        // 縞模様生成処理
+        const stripe = () => {
+            parameter.dpl = Math.floor(parameter.dpl * view_count) / view_count;
+            document.getElementById('dpl_value').innerText = `${parameter.dpl.toFixed(3)}`;
+            document.getElementById('offset_value').innerText = `${parameter.x.toFixed(3)}`;
+            document.getElementById('angle_value').innerText = `${parameter.angle}`;
+
+
+            const context = parameter.canvas.getContext('2d');
+            context.clearRect(-1, -1, width + 2, h + 2);
+            context.beginPath();
+            context.fillStyle = 'black';
+            context.fillRect(-1, -1, width + 2, h + 2);
+            const cx = width / 2 + parameter.x;
+            const cy = height / 2;
+            for (let i = 0; i < width; i += parameter.dpl) {
+                const dx = h * Math.tan((parameter.angle - 90.0) / 180.0 * Math.PI);
+
+                context.beginPath();
+                context.strokeStyle = 'white';
+                context.moveTo(cx - i, 0);
+                context.lineTo(cx - i - dx, h);
+                context.stroke();
+
+                if (i == 0) continue;
+                context.beginPath();
+                context.strokeStyle = 'white';
+                context.moveTo(cx + i, 0);
+                context.lineTo(cx + i - dx, h);
+                context.stroke();
+            }
+        };
+
+        // HTML上の画像をPNGとして保存
+        function download(kind) {
+            const p = {};
+            if (kind == 'image') {
+                p.href = document.getElementById('canvas').toDataURL();
+                p.download = `vertical_stripe_(${parameter.dpl},${parameter.x},${parameter.angle}).png`;
+            } else if (kind == 'json') {
+                p.href = 'data:application/json;charset=utf-8;,' + JSON.stringify(parameter);
+                p.download = `calibration_${Date.now()}.json`;
+            }
+            const canvas = document.getElementById('canvas');
+            const a = document.createElement('a');
+            Object.keys(p).map(x => a.setAttribute(x, p[x]));
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function add(diff) {
+            Object.keys(diff).map(x => {
+                parameter[x] += diff[x];
+            });
+            Object.keys(range).map(x => {
+                if (parameter[x] < range[x][0]) parameter[x] = range[x][0];
+                if (parameter[x] > range[x][1]) parameter[x] = range[x][1];
+            });
+            stripe();
+        }
+    </script>
+</head>
+
+<body>
+    <table id="header">
+        <tr>
+            <td class="button"><button onclick="add({angle: -1});">-1</button></td>
+            <td class="button"><button onclick="add({angle: -0.1});">-0.1</button></td>
+            <td class="button"><button onclick="add({angle: -0.01});">-0.01</button></td>
+            <td>Rotation</td>
+            <td class="button"><button onclick="add({angle: +0.01});">+0.01</button></td>
+            <td class="button"><button onclick="add({angle: +0.1});">+0.1</button></td>
+            <td class="button"><button onclick="add({angle: +1});">+1</button></td>
+        </tr>
+        <tr>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * -16});">-16</button></td>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * -4});">-4</button></td>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * -1});">-1</button></td>
+            <td>Frequency</td>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * +1});">+1</button></td>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * +4});">+4</button></td>
+            <td class="button"><button onclick="add({dpl: 1 / view_count * +16});">+16</button></td>
+        </tr>
+        <tr>
+            <td class="button"><button onclick="add({x: -1});">-1</button></td>
+            <td class="button"><button onclick="add({x: -0.1});">-0.1</button></td>
+            <td class="button"><button onclick="add({x: -0.01});">-0.01</button></td>
+            <td>Offset</td>
+            <td class="button"><button onclick="add({x: +0.01});">+0.01</button></td>
+            <td class="button"><button onclick="add({x: +0.1});">+0.1</button></td>
+            <td class="button"><button onclick="add({x: +1});">+1</button></td>
+        </tr>
+    </table>
+    <table id="footer">
+        <tr>
+            <td><button onclick="download('image');">Image</button></td>
+            <td>Download</td>
+            <td><button onclick="download('json');">JSON</button></td>
+        </tr>
+        <tr class="parameter">
+            <td>DPL</td>
+            <td colspan="2" class="parameter" id="dpl_value"></td>
+        </tr>
+        <tr class="parameter">
+            <td>Angle</td>
+            <td colspan="2" class="parameter" id="angle_value"></td>
+        </tr>
+        <tr class="parameter">
+            <td>Offset</td>
+            <td colspan="2" class="parameter" id="offset_value"></td>
+        </tr>
+    </table>
+    <div id="root"><canvas id="canvas"></canvas></div>
+    <p id="view"><a href="view.html">View</a></p>
+</body>
+
+</html>
