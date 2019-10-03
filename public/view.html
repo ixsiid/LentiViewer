@@ -33,23 +33,35 @@
 
     </style>
 
-    <script src="script/switch.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/105/three.min.js"></script>
+    <script src="util/switch.js"></script>
+
+    <script src="three/three.min.js"></script>
+    <script src="three/mmdparser.min.js"></script>
+    <script src="three/TGALoader.js"></script>
+    <script src="three/ammo.js"></script>
+    <script src="three/CCDIKSolver.js"></script>
+    <script src="three/MMDPhysics.js"></script>
+    <script src="three/MMDLoader.js"></script>
+    <script src="three/MMDAnimationHelper.js"></script>
+
     <script type="module">
         import { quat, mat4, vec3 } from './util/gl-matrix/src/index.js';
         import PlaneFactory from './lenti_mask/renderer/plane.js';
 
         import Lenti from './lenti_mask/index.js';
 
+        var renderer, scene, clock;
+        var lenti, helper;
         const game = {};
         const items = [];
 
         function update() {
             items.map(x => x.rotation.y += 0.01);
 
-            game.renderer.clear(true, true, false);
+            renderer.clear(true, true, false);
 
-            game.lenti.render(game.scene);
+            helper.update(clock.getDelta());
+            lenti.render(scene);
 
             requestAnimationFrame(update);
         }
@@ -62,36 +74,64 @@
                 return { width: bounds.width, height: bounds.height };
             })();
 
-            game.renderer = new THREE.WebGLRenderer({
+            renderer = new THREE.WebGLRenderer({
                 canvas: content,
                 preserveDrawingBuffer: true,
             });
-            game.renderer.autoClear = false;
-            game.renderer.setPixelRatio(window.devicePixelRatio);
-            game.renderer.setSize(width, height);
+            renderer.autoClear = false;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(width, height);
 
             const lens = {
                 SlantAngleDegrees: 76.95,
-                ViewCount: 45,
-                DPL: 7.59375 };
+                ViewCount: 27,
+                DPL: 7.59375
+            };
             const camera = {
                 Distance: 1000,
-                AngleOfViewDegrees: 45,   // １つのカメラの画角
+                AngleOfViewDegrees: 45,  // １つのカメラの画角
                 Aspect: width / height,
-                ViewingAngleDegrees: 60 } // 観察者の視野角
+                ViewingAngleDegrees: 60, // 観察者の視野角
+            } 
 
-            game.lenti = new Lenti(game.renderer, lens, camera);
-            
-            game.scene = new THREE.Scene();
+            lenti = new Lenti(renderer, lens, camera);
 
-            const geometry = new THREE.BoxGeometry(200, 200, 200);
-            const material = new THREE.MeshNormalMaterial();
-            const box = new THREE.Mesh(geometry, material);
-            box.rotation.x += 0.5;
-            game.scene.add(box);
+            scene = new THREE.Scene();
 
-            items.push(box);
+            const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
+            scene.add(light);
 
+            const useMMD = true;
+
+            if (useMMD) {
+                const model = 'mmd/model/picachu_dance_v2.pmx';
+                const anime = 'mmd/motion/dramatsurugi.vmd';
+
+                helper = new THREE.MMDAnimationHelper();
+                const loader = new THREE.MMDLoader();
+                loader.loadWithAnimation(model, anime,
+                    mmd => {
+                        helper.add(mmd.mesh, {
+                            animation: mmd.animation,
+                            physics: false,
+                        });
+                        scene.add(mmd.mesh);
+                    },
+                    xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+                    xhr => console.log('An error happened')
+                );
+            } else {
+                const geometry = new THREE.BoxGeometry(200, 200, 200);
+                const material = new THREE.MeshNormalMaterial();
+                const box = new THREE.Mesh(geometry, material);
+                box.rotation.x += 0.5;
+                scene.add(box);
+
+                items.push(box);
+            }
+
+            clock = new THREE.Clock();
+            clock.start();
             update();
         }, false);
     </script>

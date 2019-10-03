@@ -98,7 +98,6 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 	});
 
 	// カメラ準備
-
 	Object.defineProperty(this, 'camera', {
 		writable: false,
 		configurable: false,
@@ -111,10 +110,14 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 
 			const viewAngleRadians = ViewingAngleDegrees / 180 * Math.PI;
 			const dViewAngleRadians = viewAngleRadians / lenti.count;
+
+			const k = -5;
+			const y = 4;
 			for (let i = 0; i < lenti.count; i++) {
 				const rotate = viewAngleRadians / 2 - i * dViewAngleRadians;
 
-				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
+//				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
+				const cm = new THREE.OrthographicCamera(-k, k, -k / Aspect + y, k / Aspect + y);
 				cm.position.set(Distance * Math.sin(rotate), 0, Distance * Math.cos(rotate));
 				cm.lookAt(new THREE.Vector3(0, 0, 0));
 
@@ -174,6 +177,7 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 		configurable: false,
 		enumerable: false,
 		value: (scene) => {
+			gl.enable(gl.STENCIL_TEST);
 			for (let i = 0; i < lenti.count; i++) {
 				gl.stencilFunc(gl.EQUAL, i, ~0);
 				threeRenderer.render(scene, camera[i]);
