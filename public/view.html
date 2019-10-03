@@ -35,20 +35,17 @@
 
     <script src="util/switch.js"></script>
 
-    <script src="three/three.min.js"></script>
-    <script src="three/mmdparser.min.js"></script>
-    <script src="three/TGALoader.js"></script>
-    <script src="three/ammo.js"></script>
-    <script src="three/CCDIKSolver.js"></script>
-    <script src="three/MMDPhysics.js"></script>
-    <script src="three/MMDLoader.js"></script>
-    <script src="three/MMDAnimationHelper.js"></script>
-
     <script type="module">
         import { quat, mat4, vec3 } from './util/gl-matrix/src/index.js';
         import PlaneFactory from './lenti_mask/renderer/plane.js';
 
         import Lenti from './lenti_mask/index.js';
+
+        import * as THREE from './three/build/three.module.js';
+        import { MMDLoader } from './three/exsamples/jsm/loaders/MMDLoader.js';
+        import { MMDAnimationHelper } from './three/exsamples/jsm/animation/MMDAnimationHelper.js';
+
+        import WakeLock from './util/wakelock.js';
 
         var renderer, scene, clock;
         var lenti, helper;
@@ -56,11 +53,11 @@
         const items = [];
 
         function update() {
-            items.map(x => x.rotation.y += 0.01);
+            // items.map(x => x.rotation.y += 0.01);
 
             renderer.clear(true, true, false);
 
-            helper.update(clock.getDelta());
+            // helper.update(clock.getDelta());
             lenti.render(scene);
 
             requestAnimationFrame(update);
@@ -85,30 +82,31 @@
             const lens = {
                 SlantAngleDegrees: 76.95,
                 ViewCount: 27,
-                DPL: 7.59375
+                DPL: 7.59375,
+                Offset: 0.21,
             };
             const camera = {
                 Distance: 1000,
                 AngleOfViewDegrees: 45,  // １つのカメラの画角
                 Aspect: width / height,
-                ViewingAngleDegrees: 60, // 観察者の視野角
-            } 
+                ViewingAngleDegrees: 90, // 観察者の視野角
+            }
 
-            lenti = new Lenti(renderer, lens, camera);
+            lenti = new Lenti(THREE, renderer, lens, camera);
 
             scene = new THREE.Scene();
 
             const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
             scene.add(light);
 
-            const useMMD = true;
+            const useMMD = false;
 
             if (useMMD) {
                 const model = 'mmd/model/picachu_dance_v2.pmx';
                 const anime = 'mmd/motion/dramatsurugi.vmd';
 
-                helper = new THREE.MMDAnimationHelper();
-                const loader = new THREE.MMDLoader();
+                helper = new MMDAnimationHelper();
+                const loader = new MMDLoader();
                 loader.loadWithAnimation(model, anime,
                     mmd => {
                         helper.add(mmd.mesh, {
@@ -121,14 +119,33 @@
                     xhr => console.log('An error happened')
                 );
             } else {
-                const geometry = new THREE.BoxGeometry(200, 200, 200);
+                const geometry = new THREE.BoxGeometry(5, 5, 5);
                 const material = new THREE.MeshNormalMaterial();
                 const box = new THREE.Mesh(geometry, material);
+                box.rotation.y += Math.PI / 4;
                 box.rotation.x += 0.5;
                 scene.add(box);
 
                 items.push(box);
+
+
+                Object.keys(lens).map(x => {
+                    const target = document.querySelector(`#${x}`);
+                    if (target === null) return;
+
+                    target.firstElementChild.innerText = lens[x].toFixed(3);
+                    [].reduce.call(target.children, (_, b) => {
+                        const d = parseFloat(b.innerText);
+                        b.addEventListener('click', () => {
+                            lens[x] += d;
+                            target.firstElementChild.innerText = lens[x].toFixed(3);
+                            lenti.calibration(lens);
+                        }, false);
+                    });
+                });
             }
+
+            document.querySelector('#wakelock').addEventListener('click', WakeLock, false);
 
             clock = new THREE.Clock();
             clock.start();
@@ -138,7 +155,32 @@
 </head>
 
 <body>
-    <p id="navi"><a href="app.html">App</a></p>
+    <div id="navi">
+        <div id="calibration" style="display: none;">
+            <table>
+                <tr id="DPL">
+                    <td>value</td>
+                    <td><button>-0.001</button></td>
+                    <td><button>-0.01</button></td>
+                    <td><button>-0.1</button></td>
+                    <td><button>+0.1</button></td>
+                    <td><button>+0.01</button></td>
+                    <td><button>+0.001</button></td>
+                </tr>
+                <tr id="SlantAngleDegrees">
+                    <td>value</td>
+                    <td><button>-0.001</button></td>
+                    <td><button>-0.01</button></td>
+                    <td><button>-0.1</button></td>
+                    <td><button>+0.1</button></td>
+                    <td><button>+0.01</button></td>
+                    <td><button>+0.001</button></td>
+                </tr>
+            </table>
+        </div>
+        <p><button id="wakelock">WakeLock</button></p>
+        <p><a href="app.html">App</a></p>
+    </div>
     <canvas id="content"></canvas>
 </body>
 

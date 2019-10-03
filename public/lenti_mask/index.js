@@ -23,7 +23,7 @@ void main(void) {
 }
 `;
 
-function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance, AngleOfViewDegrees, Aspect, ViewingAngleDegrees }) {
+function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset }, { Distance, AngleOfViewDegrees, Aspect, ViewingAngleDegrees }) {
 	const gl = threeRenderer.getContext();
 	gl.enable(gl.STENCIL_TEST);
 	gl.clearStencil(255);
@@ -85,6 +85,7 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 			lenti.frequency = 2 * Math.PI / DPL;
 			lenti.deltaPhase = 2 * Math.PI / ViewCount;
 			lenti.deltaY = lenti.frequency / Math.tan(SlantAngleDegrees / 180 * Math.PI);
+			lenti.offset = 2 * Math.PI * Offset;
 
 			lenti.threshold = (x => {
 				const cos = Math.cos(x);
@@ -112,9 +113,9 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 			const dViewAngleRadians = viewAngleRadians / lenti.count;
 
 			const k = -5;
-			const y = 4;
+			const y = 0; // 4
 			for (let i = 0; i < lenti.count; i++) {
-				const rotate = viewAngleRadians / 2 - i * dViewAngleRadians;
+				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
 
 //				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
 				const cm = new THREE.OrthographicCamera(-k, k, -k / Aspect + y, k / Aspect + y);
@@ -143,6 +144,8 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 			gl.depthMask(false);
 			gl.colorMask(false, false, false, false);
 
+			gl.useProgram(shader.program);
+
 			for (let i = 0; i < lenti.count; i++) {
 				const index = i - 0.5 * (lenti.count - 1);
 
@@ -151,7 +154,9 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 				mask.render(mask_camera, [], (context, shader) => {
 					context.uniform1f(shader.uniformLocations.uFrequency, lenti.frequency);
 					context.uniform1f(shader.uniformLocations.uThreshold, lenti.threshold);
-					context.uniform1f(shader.uniformLocations.uOffsetX, lenti.deltaPhase * index + Math.PI * lenti.frequency);
+					context.uniform1f(shader.uniformLocations.uOffsetX,
+						lenti.deltaPhase * index +
+						lenti.offset);
 					context.uniform1f(shader.uniformLocations.uPhaseDeltaY, lenti.deltaY);
 				});
 			}
@@ -159,6 +164,8 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 			gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 			gl.depthMask(true);
 			gl.colorMask(true, true, true, true);
+
+			gl.useProgram(latestProgram);
 		}
 	});
 
@@ -186,6 +193,13 @@ function Lenti(threeRenderer, { SlantAngleDegrees, ViewCount, DPL }, { Distance,
 			gl.stencilFunc(gl.ALWAYS, 0, ~0);
 		}
 	});
+
+	var latestProgram;
+	const useProgram = gl.useProgram;
+	gl.useProgram = program => {
+		if (shader.program !== program) latestProgram = program;
+		useProgram.call(gl, program);
+	};
 
 	return this;
 };

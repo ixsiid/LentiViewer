@@ -23,7 +23,7 @@ function Renderer(context, shader) {
 
         context.drawElements(context.TRIANGLES, vertexCount, context.UNSIGNED_SHORT, 0);
 
-        Renderer.clearBuffer(context, shader);
+        //Renderer.clearBuffer(context, shader);
     };
 
     this.addRenderCallback = callback => renderCallback.push(callback);
