@@ -46,6 +46,7 @@
         import { MMDAnimationHelper } from './three/exsamples/jsm/animation/MMDAnimationHelper.js';
 
         import WakeLock from './util/wakelock.js';
+        import Download from './util/download.js';
 
         var scene, scene2;
         var lenti;
@@ -53,9 +54,18 @@
 
         const storage = window.localStorage;
 
+        const renderFilter = {
+            middle: (i, l) => i > 1 && i < (l - 2),
+            even: i => i % 2 == 0,
+            five: i => i % 5 == 0,
+            all: i => true,
+            one: (i, l) => i > (l / 2 - 1) && i < (l / 2 + 1),
+        };
+        renderFilter.active = renderFilter.middle;
+
         function update() {
             // lenti.render(scene2);
-            lenti.render(scene, [true, true, false], (i,l) => i > 3);
+            lenti.render(scene, [true, true, false], renderFilter.active);
 
             requestAnimationFrame(update);
         }
@@ -77,10 +87,11 @@
             renderer.setSize(width, height);
 
             const lens = {
-                SlantAngleDegrees:105.674,
-                ViewCount: 27,
+                SlantAngleDegrees: 105.674,
+                ViewCount: 17,
                 DPL: 4.629,
                 Offset: 0.064,
+                AngleOfViewDegrees: 10,
             };
 
             const load = storage => {
@@ -94,14 +105,14 @@
             //load(window.localStorage);
 
             const view = {
-                Width: 10,  // カメラが映す幅
+                Width: 15,  // カメラが映す幅
                 Aspect: width / height,
-                ViewingAngleDegrees: 40, // 観察視野角 ⇒ 立体度に影響
+                ViewingAngleDegrees: 30, // 観察視野角 ⇒ 立体度に影響
             };
             const camera = {
                 Point: new THREE.Vector3(0, 5, 0),
                 Distance: 100,
-                Elevation: 10,
+                Elevation: 35,
             };
 
             lenti = new Lenti(THREE, renderer, lens, view, camera);
@@ -160,7 +171,7 @@
                     const planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), planeMaterial);
                     planeMesh.position.y += 5;
                     scene.add(planeMesh);
-                    
+
 
                     Object.keys(lens).map(x => {
                         const target = document.querySelector(`#${x}`);
@@ -185,9 +196,7 @@
                     const material = new THREE.MeshNormalMaterial();
                     const box = new THREE.Mesh(geometry, material);
                     box.rotation.y += Math.PI / 4;
-                    box.rotation.x += 0.5;
                     box.position.y += 5;
-                    box.position.z += 1;
                     scene.add(box);
 
                     Object.keys(lens).map(x => {
@@ -205,18 +214,43 @@
                         });
                     });
 
-                    const rotateFunc = () => box.rotation.y += 0.02;
+                    const rotateFunc = () => {
+                        box.rotation.y += 0.02;
+                        box.rotation.x += 0.0013;
+                    };
                     document.querySelector('#rotation').addEventListener('click', () => {
                         const index = lenti.preMessage.indexOf(rotateFunc);
                         if (index < 0) lenti.preMessage.push(rotateFunc);
                         else lenti.preMessage.splice(index, 1);
                     }, false);
 
+                    let p = 0;
+                    const vibrateFunc = () => {
+                        p += 0.02;
+                        box.position.z = Math.sin(p) * 3;
+                    };
+                    document.querySelector('#vibration').addEventListener('click', () => {
+                        const index = lenti.preMessage.indexOf(vibrateFunc);
+                        if (index < 0) lenti.preMessage.push(vibrateFunc);
+                        else lenti.preMessage.splice(index, 1);
+                    }, false);
+
+                    [].map.call(document.querySelectorAll('#filter button'), x => {
+                        x.addEventListener('click', () => {
+                            renderFilter.active = renderFilter[x.id];
+                        }, false);
+                    });
+
                     document.querySelector('#calibration').style.display = 'block';
                     break;
             }
 
             document.querySelector('#wakelock').addEventListener('click', WakeLock, false);
+            document.querySelector('#download').addEventListener('click', () => Download(document.querySelector('canvas')), false);
+            document.querySelector('#minimize').addEventListener('click', () => {
+                const table = document.querySelector('#calibration');
+                table.style.display = table.style.display == 'none' ? 'block' : 'none';
+            }, false);
 
             update();
         }, false);
@@ -259,11 +293,26 @@
                     <td colspan="3"><button id="load">Load</button></td>
                     <td colspan="3"><button id="save">Save</button></td>
                 </tr>
-                <tr><td><button id="rotation">Rotation</button></td></tr>
+                <tr>
+                    <td></td>
+                    <td colspan="2"><button id="rotation">Rotation</button></td>
+                    <td colspan="2"><button id="vibration">Vibration</button></td>
+                    <td colspan="2"><button id="download">download</button></td>
+                </tr>
+                <tr id="filter">
+                    <td><button id="one">One</button></td>
+                    <td></td>
+                    <td><button id="even">Even</button></td>
+                    <td><button id="five">Five</button></td>
+                    <td></td>
+                    <td><button id="all">All</button></td>
+                    <td><button id="middle">Middle</button></td>
+                </tr>
             </table>
         </div>
         <p><button id="wakelock">WakeLock</button></p>
         <p><a href="app.html">App</a></p>
+        <p><button id="minimize">Minimize</button></p>
     </div>
     <canvas id="content"></canvas>
 </body>

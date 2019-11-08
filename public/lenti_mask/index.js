@@ -1,6 +1,8 @@
 import { quat, mat4, vec3 } from '../util/gl-matrix/src/index.js';
 import PlaneFactory from './renderer/plane.js';
 
+import * as THREE from '../three/build/three.module.js';
+
 const VERTEX_SHADER = `
 attribute vec4 aVertexPosition;
 
@@ -24,7 +26,7 @@ void main(void) {
 `;
 
 function Lenti(THREE, threeRenderer,
-	{ SlantAngleDegrees, ViewCount, DPL, Offset },
+	{ SlantAngleDegrees, ViewCount, DPL, Offset, AngleOfViewDegrees },
 	{ Width, Aspect, ViewingAngleDegrees },
 	{ Point, Distance, Elevation }) {
 	const gl = threeRenderer.getContext();
@@ -138,16 +140,25 @@ function Lenti(THREE, threeRenderer,
 			const dViewAngleRadians = viewAngleRadians / lenti.count;
 
 			const k = Width / 2;
+			const distance = k / Math.tan(AngleOfViewDegrees / 180 * Math.PI / 2);
+
 			for (let i = 0; i < lenti.count; i++) {
 				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
 
-				// const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
+				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
+				cm.position.set(
+					distance * Math.sin(rotate) + Point.x,
+					distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
+					distance * Math.cos(rotate) + Point.z);
+				
+				/*
 				const cm = new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect);
 				cm.position.set(
 					Distance * Math.sin(rotate) + Point.x,
 					Distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
 					Distance * Math.cos(rotate) + Point.z);
-				cm.lookAt(Point);
+					*/
+				cm.lookAt(Point);				
 
 				cameraArray.push(cm);
 			}
