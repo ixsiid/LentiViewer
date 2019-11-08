@@ -47,18 +47,15 @@
 
         import WakeLock from './util/wakelock.js';
 
-        var renderer, scene, clock;
-        var lenti, helper;
+        var scene, scene2;
+        var lenti;
         const game = {};
-        const items = [];
+
+        const storage = window.localStorage;
 
         function update() {
-            // items.map(x => x.rotation.y += 0.01);
-
-            renderer.clear(true, true, false);
-
-            // helper.update(clock.getDelta());
-            lenti.render(scene);
+            // lenti.render(scene2);
+            lenti.render(scene, [true, true, false], (i,l) => i > 3);
 
             requestAnimationFrame(update);
         }
@@ -71,7 +68,7 @@
                 return { width: bounds.width, height: bounds.height };
             })();
 
-            renderer = new THREE.WebGLRenderer({
+            const renderer = new THREE.WebGLRenderer({
                 canvas: content,
                 preserveDrawingBuffer: true,
             });
@@ -80,75 +77,147 @@
             renderer.setSize(width, height);
 
             const lens = {
-                SlantAngleDegrees: 76.95,
+                SlantAngleDegrees:105.674,
                 ViewCount: 27,
-                DPL: 7.59375,
-                Offset: 0.21,
+                DPL: 4.629,
+                Offset: 0.064,
+            };
+
+            const load = storage => {
+                Object.keys(storage).map(x => lens[x] = parseFloat(storage.getItem(x)));
+            };
+
+            const save = storage => {
+                Object.keys(lens).map(x => storage.setItem(x, lens[x]));
+            };
+
+            //load(window.localStorage);
+
+            const view = {
+                Width: 10,  // カメラが映す幅
+                Aspect: width / height,
+                ViewingAngleDegrees: 40, // 観察視野角 ⇒ 立体度に影響
             };
             const camera = {
-                Distance: 1000,
-                AngleOfViewDegrees: 45,  // １つのカメラの画角
-                Aspect: width / height,
-                ViewingAngleDegrees: 90, // 観察者の視野角
-            }
+                Point: new THREE.Vector3(0, 5, 0),
+                Distance: 100,
+                Elevation: 10,
+            };
 
-            lenti = new Lenti(THREE, renderer, lens, camera);
+            lenti = new Lenti(THREE, renderer, lens, view, camera);
 
             scene = new THREE.Scene();
 
             const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
             scene.add(light);
 
-            const useMMD = false;
+            // scene2 = new THREE.Scene();
 
-            if (useMMD) {
-                const model = 'mmd/model/picachu_dance_v2.pmx';
-                const anime = 'mmd/motion/dramatsurugi.vmd';
+            const useMMD = true;
+            const model = window.location.search.substring(1);
 
-                helper = new MMDAnimationHelper();
-                const loader = new MMDLoader();
-                loader.loadWithAnimation(model, anime,
-                    mmd => {
-                        helper.add(mmd.mesh, {
-                            animation: mmd.animation,
-                            physics: false,
+            switch (model) {
+                case "pika":
+                    const model = 'mmd/model/picachu_dance_v2.pmx';
+                    const anime = 'mmd/motion/dramatsurugi.vmd';
+
+                    const clock = new THREE.Clock();
+                    const helper = new MMDAnimationHelper();
+                    const loader = new MMDLoader();
+                    loader.loadWithAnimation(model, anime,
+                        mmd => {
+                            helper.add(mmd.mesh, {
+                                animation: mmd.animation,
+                                physics: false,
+                            });
+                            scene.add(mmd.mesh);
+                        },
+                        xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+                        xhr => console.log('An error happened')
+                    );
+
+                    lenti.preMessage.push(() => helper.update(clock.getDelta()));
+
+
+                    /*
+                    const textureLoader = new THREE.TextureLoader();
+                    textureLoader.load('texture/photos_2017_11_10_fst_sky-texture.jpg',
+                        texture => {
+                            const bgMaterial = new THREE.MeshBasicMaterial({ map: texture });
+                            const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), bgMaterial);
+                            //bgMesh.rotation.x += Math.PI / 4;
+                            bgMesh.position.y += 5
+                            scene2.add(bgMesh);
+                        },
+                        undefined,
+                        err => console.error(err),
+                    );
+                    */
+                    clock.start();
+                    break;
+                case "calibration":
+                    const planeMaterial = new THREE.MeshNormalMaterial();
+                    const planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), planeMaterial);
+                    planeMesh.position.y += 5;
+                    scene.add(planeMesh);
+                    
+
+                    Object.keys(lens).map(x => {
+                        const target = document.querySelector(`#${x}`);
+                        if (target === null) return;
+
+                        target.firstElementChild.innerText = lens[x].toFixed(3);
+                        [].reduce.call(target.children, (_, b) => {
+                            const d = parseFloat(b.innerText);
+                            b.addEventListener('click', () => {
+                                lens[x] += d;
+                                target.firstElementChild.innerText = lens[x].toFixed(3);
+                                lenti.calibration(lens);
+                            }, false);
                         });
-                        scene.add(mmd.mesh);
-                    },
-                    xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
-                    xhr => console.log('An error happened')
-                );
-            } else {
-                const geometry = new THREE.BoxGeometry(5, 5, 5);
-                const material = new THREE.MeshNormalMaterial();
-                const box = new THREE.Mesh(geometry, material);
-                box.rotation.y += Math.PI / 4;
-                box.rotation.x += 0.5;
-                scene.add(box);
-
-                items.push(box);
-
-
-                Object.keys(lens).map(x => {
-                    const target = document.querySelector(`#${x}`);
-                    if (target === null) return;
-
-                    target.firstElementChild.innerText = lens[x].toFixed(3);
-                    [].reduce.call(target.children, (_, b) => {
-                        const d = parseFloat(b.innerText);
-                        b.addEventListener('click', () => {
-                            lens[x] += d;
-                            target.firstElementChild.innerText = lens[x].toFixed(3);
-                            lenti.calibration(lens);
-                        }, false);
                     });
-                });
+
+                    document.querySelector('#calibration').style.display = 'block';
+
+                    break;
+                default:
+                    const geometry = new THREE.BoxGeometry(5, 5, 5);
+                    const material = new THREE.MeshNormalMaterial();
+                    const box = new THREE.Mesh(geometry, material);
+                    box.rotation.y += Math.PI / 4;
+                    box.rotation.x += 0.5;
+                    box.position.y += 5;
+                    box.position.z += 1;
+                    scene.add(box);
+
+                    Object.keys(lens).map(x => {
+                        const target = document.querySelector(`#${x}`);
+                        if (target === null) return;
+
+                        target.firstElementChild.innerText = lens[x].toFixed(3);
+                        [].reduce.call(target.children, (_, b) => {
+                            const d = parseFloat(b.innerText);
+                            b.addEventListener('click', () => {
+                                lens[x] += d;
+                                target.firstElementChild.innerText = lens[x].toFixed(3);
+                                lenti.calibration(lens);
+                            }, false);
+                        });
+                    });
+
+                    const rotateFunc = () => box.rotation.y += 0.02;
+                    document.querySelector('#rotation').addEventListener('click', () => {
+                        const index = lenti.preMessage.indexOf(rotateFunc);
+                        if (index < 0) lenti.preMessage.push(rotateFunc);
+                        else lenti.preMessage.splice(index, 1);
+                    }, false);
+
+                    document.querySelector('#calibration').style.display = 'block';
+                    break;
             }
 
             document.querySelector('#wakelock').addEventListener('click', WakeLock, false);
 
-            clock = new THREE.Clock();
-            clock.start();
             update();
         }, false);
     </script>
@@ -176,6 +245,21 @@
                     <td><button>+0.01</button></td>
                     <td><button>+0.001</button></td>
                 </tr>
+                <tr id="Offset">
+                    <td>value</td>
+                    <td><button>-0.001</button></td>
+                    <td><button>-0.01</button></td>
+                    <td><button>-0.1</button></td>
+                    <td><button>+0.1</button></td>
+                    <td><button>+0.01</button></td>
+                    <td><button>+0.001</button></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td colspan="3"><button id="load">Load</button></td>
+                    <td colspan="3"><button id="save">Save</button></td>
+                </tr>
+                <tr><td><button id="rotation">Rotation</button></td></tr>
             </table>
         </div>
         <p><button id="wakelock">WakeLock</button></p>

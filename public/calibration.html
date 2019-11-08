@@ -12,7 +12,8 @@
             padding: 0;
         }
 
-        html, body {
+        html,
+        body {
             width: 100%;
         }
 
@@ -59,6 +60,7 @@
         #footer .parameter td:first-child {
             text-align: right;
         }
+
         #footer .parameter td:first-child::after {
             content: ':';
             margin: auto 1.5vw;
@@ -77,11 +79,13 @@
         }
 
         #view a:visited {
-            color:inherit;
+            color: inherit;
         }
+
         #view a {
             text-decoration: none;
         }
+
         #view {
             background-color: white;
             color: black;
@@ -91,12 +95,13 @@
             bottom: 0;
             font-weight: bold;
         }
+
     </style>
     <script>
         // 視点数を変えるときは調整する。
         // DPLの調整がちょうどうまくいかないときなど。
         const view_count = 32;
-    
+
         const width = window.innerWidth;
         const height = window.innerHeight;
         // キャリブレーションパラメータ
@@ -105,10 +110,22 @@
             x: 0.0,
             angle: 90.0,
         };
+
+        {
+            const angle = parseFloat(window.localStorage.getItem("SlantAngleDegrees"));
+            if (!isNaN(angle)) parameter.angle = angle;
+            const dpl = parseFloat(window.localStorage.getItem("DPL"));
+            if (!isNaN(dpl)) parameter.dpl = dpl;
+            const x = parseFloat(window.localStorage.getItem("Offset"));
+            if (!isNaN(x)) parameter.x = x;
+        }
+
+
+
         const range = {
-            dpl: [4, 8],
+            dpl: [2, 13],
             x: [-5, 5],
-            angle: [60, 120],
+            angle: [50, 140],
         };
         Object.defineProperty(parameter, 'canvas', {
             writable: true,
@@ -185,6 +202,23 @@
             });
             stripe();
         }
+
+        function save() {
+            /*
+            const lens = {
+                SlantAngleDegrees:108.889,// 76.95,
+                ViewCount: 27,
+                DPL: 7.794,//7.58175,
+                Offset: 0.35,
+            };
+            */
+
+            window.localStorage.setItem("SlantAngleDegrees", parameter.angle);
+            window.localStorage.setItem("DPL", parameter.dpl);
+            window.localStorage.setItem("Offset", parameter.x);
+
+            return false;
+        }
     </script>
 </head>
 
@@ -221,7 +255,7 @@
     <table id="footer">
         <tr>
             <td><button onclick="download('image');">Image</button></td>
-            <td>Download</td>
+            <td><button onclick="save();">Save</button></td>
             <td><button onclick="download('json');">JSON</button></td>
         </tr>
         <tr class="parameter">

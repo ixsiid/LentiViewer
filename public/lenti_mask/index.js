@@ -23,7 +23,10 @@ void main(void) {
 }
 `;
 
-function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset }, { Distance, AngleOfViewDegrees, Aspect, ViewingAngleDegrees }) {
+function Lenti(THREE, threeRenderer,
+	{ SlantAngleDegrees, ViewCount, DPL, Offset },
+	{ Width, Aspect, ViewingAngleDegrees },
+	{ Point, Distance, Elevation }) {
 	const gl = threeRenderer.getContext();
 	gl.enable(gl.STENCIL_TEST);
 	gl.clearStencil(255);
@@ -75,12 +78,31 @@ function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset
 
 	const lenti = {};
 
+	// コールバック関数
+	// バッファクリア前に呼ばれる関数
+	// このコールバックでレンダリング処理をしてはならない
+	Object.defineProperty(this, 'preMessage', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: []
+	});
+
+	// レンダリング解放処理後に呼ばれる関数
+	// このコールバックでレンダリング処理をしてはならない
+	Object.defineProperty(this, 'postMessage', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: []
+	});
+
 	// キャリブレーション
 	Object.defineProperty(this, 'calibration', {
 		writable: false,
 		configurable: false,
 		enumerable: false,
-		value: ({ SlantAngleDegrees, ViewCount, DPL }) => {
+		value: ({ SlantAngleDegrees, ViewCount, DPL, Offset }) => {
 			lenti.count = ViewCount;
 			lenti.frequency = 2 * Math.PI / DPL;
 			lenti.deltaPhase = 2 * Math.PI / ViewCount;
@@ -94,7 +116,7 @@ function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset
 			})(2 * Math.PI / (ViewCount - 1));
 
 			this.refresh_stencil_buffer();
-			this.camera(camera.parameter);
+			this.camera(view, camera);
 		}
 	});
 
@@ -103,26 +125,31 @@ function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset
 		writable: false,
 		configurable: false,
 		enumerable: false,
-		value: ({ Distance, AngleOfViewDegrees, Aspect, ViewingAngleDegrees }) => {
-			camera.parameter.Distance = Distance;
-			camera.parameter.AngleOfViewDegrees = AngleOfViewDegrees;
-			camera.parameter.Aspect = Aspect;
-			camera.parameter.ViewingAngleDegrees = ViewingAngleDegrees;
+		value: ({ Width, Aspect, ViewingAngleDegrees }, { Point, Distance, Elevation }) => {
+			view.Width = Width;
+			view.Aspect = Aspect;
+			view.ViewingAngleDegrees = ViewingAngleDegrees;
+
+			camera.Point = Point;
+			camera.Distance = Distance;
+			camera.Elevation = Elevation;
 
 			const viewAngleRadians = ViewingAngleDegrees / 180 * Math.PI;
 			const dViewAngleRadians = viewAngleRadians / lenti.count;
 
-			const k = -5;
-			const y = 0; // 4
+			const k = Width / 2;
 			for (let i = 0; i < lenti.count; i++) {
 				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
 
-//				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
-				const cm = new THREE.OrthographicCamera(-k, k, -k / Aspect + y, k / Aspect + y);
-				cm.position.set(Distance * Math.sin(rotate), 0, Distance * Math.cos(rotate));
-				cm.lookAt(new THREE.Vector3(0, 0, 0));
+				// const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
+				const cm = new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect);
+				cm.position.set(
+					Distance * Math.sin(rotate) + Point.x,
+					Distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
+					Distance * Math.cos(rotate) + Point.z);
+				cm.lookAt(Point);
 
-				camera.push(cm);
+				cameraArray.push(cm);
 			}
 		}
 	});
@@ -170,27 +197,31 @@ function Lenti(THREE, threeRenderer, { SlantAngleDegrees, ViewCount, DPL, Offset
 	});
 
 	// 初期化
-	const camera = [];
-	Object.defineProperty(camera, 'parameter', {
-		writable: false,
-		configurable: false,
-		enumerable: false,
-		value: { Distance, AngleOfViewDegrees, Aspect, ViewingAngleDegrees }
-	});
-	this.calibration({ SlantAngleDegrees, ViewCount, DPL });
+	const view = { Width, Aspect, ViewingAngleDegrees };
+	const camera = { Point, Distance, Elevation };
+	const cameraArray = [];
+	this.calibration({ SlantAngleDegrees, ViewCount, DPL, Offset });
 
 	Object.defineProperty(this, 'render', {
 		writable: false,
 		configurable: false,
 		enumerable: false,
-		value: (scene) => {
+		value: (scene, clear, mask) => {
+			this.preMessage.map(x => x());
+
+			if (clear instanceof Array) threeRenderer.clear(...clear);
+
 			gl.enable(gl.STENCIL_TEST);
 			for (let i = 0; i < lenti.count; i++) {
+				if (mask instanceof Array) if (mask.indexOf(i) < 0) continue;
+				if (typeof mask === 'function') if (!mask(i,lenti.count)) continue;
 				gl.stencilFunc(gl.EQUAL, i, ~0);
-				threeRenderer.render(scene, camera[i]);
+				threeRenderer.render(scene, cameraArray[i]);
 			}
 
 			gl.stencilFunc(gl.ALWAYS, 0, ~0);
+			
+			this.postMessage.map(x => x());
 		}
 	});
 
