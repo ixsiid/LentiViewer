@@ -1,7 +1,7 @@
 import { quat, mat4, vec3 } from '../util/gl-matrix/src/index.js';
 import PlaneFactory from './renderer/plane.js';
 
-import * as THREE from '../three/build/three.module.js';
+import * as THREE from '../three.js/build/three.module.js';
 
 const VERTEX_SHADER = `
 attribute vec4 aVertexPosition;
