@@ -28,7 +28,7 @@ void main(void) {
 function Lenti(THREE, threeRenderer,
 	{ SlantAngleDegrees, ViewCount, DPL, Offset, AngleOfViewDegrees },
 	{ Width, Aspect, ViewingAngleDegrees },
-	{ Point, Distance, Elevation }) {
+	{ Point, Distance, Elevation, Around }) {
 	const gl = threeRenderer.getContext();
 	gl.enable(gl.STENCIL_TEST);
 	gl.clearStencil(255);
@@ -118,7 +118,7 @@ function Lenti(THREE, threeRenderer,
 			})(2 * Math.PI / (ViewCount - 1));
 
 			this.refresh_stencil_buffer();
-			this.camera(view, camera);
+			if (cameraArray.length == 0) this.camera(view, camera);
 		}
 	});
 
@@ -127,7 +127,7 @@ function Lenti(THREE, threeRenderer,
 		writable: false,
 		configurable: false,
 		enumerable: false,
-		value: ({ Width, Aspect, ViewingAngleDegrees }, { Point, Distance, Elevation }) => {
+		value: ({ Width, Aspect, ViewingAngleDegrees }, { Point, Distance, Elevation, Around }) => {
 			view.Width = Width;
 			view.Aspect = Aspect;
 			view.ViewingAngleDegrees = ViewingAngleDegrees;
@@ -135,33 +135,14 @@ function Lenti(THREE, threeRenderer,
 			camera.Point = Point;
 			camera.Distance = Distance;
 			camera.Elevation = Elevation;
-
-			const viewAngleRadians = ViewingAngleDegrees / 180 * Math.PI;
-			const dViewAngleRadians = viewAngleRadians / lenti.count;
-
-			const k = Width / 2;
-			const distance = k / Math.tan(AngleOfViewDegrees / 180 * Math.PI / 2);
+			camera.Around = Around;
 
 			for (let i = 0; i < lenti.count; i++) {
-				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
-
-				const cm = new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect);
-				cm.position.set(
-					distance * Math.sin(rotate) + Point.x,
-					distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
-					distance * Math.cos(rotate) + Point.z);
-				
-				/*
-				const cm = new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect);
-				cm.position.set(
-					Distance * Math.sin(rotate) + Point.x,
-					Distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
-					Distance * Math.cos(rotate) + Point.z);
-					*/
-				cm.lookAt(Point);				
-
-				cameraArray.push(cm);
+				cameraArray.push(new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect));
+				// cameraArray.push(new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect));
 			}
+
+			this._camera_position(ViewingAngleDegrees, Point, Elevation, Around);
 		}
 	});
 
@@ -203,15 +184,14 @@ function Lenti(THREE, threeRenderer,
 			gl.depthMask(true);
 			gl.colorMask(true, true, true, true);
 
-			gl.useProgram(latestProgram);
+			gl.useProgram(latestShader);
 		}
 	});
 
 	// 初期化
 	const view = { Width, Aspect, ViewingAngleDegrees };
-	const camera = { Point, Distance, Elevation };
+	const camera = { Point, Distance, Elevation, Around };
 	const cameraArray = [];
-	this.calibration({ SlantAngleDegrees, ViewCount, DPL, Offset });
 
 	Object.defineProperty(this, 'render', {
 		writable: false,
@@ -225,23 +205,106 @@ function Lenti(THREE, threeRenderer,
 			gl.enable(gl.STENCIL_TEST);
 			for (let i = 0; i < lenti.count; i++) {
 				if (mask instanceof Array) if (mask.indexOf(i) < 0) continue;
-				if (typeof mask === 'function') if (!mask(i,lenti.count)) continue;
+				if (typeof mask === 'function') if (!mask(i, lenti.count)) continue;
 				gl.stencilFunc(gl.EQUAL, i, ~0);
 				threeRenderer.render(scene, cameraArray[i]);
 			}
 
 			gl.stencilFunc(gl.ALWAYS, 0, ~0);
-			
+
 			this.postMessage.map(x => x());
 		}
 	});
 
-	var latestProgram;
+	Object.defineProperty(this, '_camera_position', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: (ViewingAngleDegrees, Point, Elevation, Around) => {
+			const viewAngleRadians = ViewingAngleDegrees / 180 * Math.PI;
+			const dViewAngleRadians = viewAngleRadians / cameraArray.length;
+
+			const k = view.Width / 2;
+			const distance = k / Math.tan(AngleOfViewDegrees / 180 * Math.PI / 2);
+			const distance_xy = distance * Math.cos(Elevation / 180 * Math.PI);
+
+			for (let i = 0; i < cameraArray.length; i++) {
+				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
+
+				cameraArray[i].position.set(
+					distance_xy * Math.sin(rotate + Around / 180 * Math.PI) + Point.x,
+					distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
+					distance_xy * Math.cos(rotate + Around / 180 * Math.PI) + Point.z);
+
+				/*
+				const cm = new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect);
+				cm.position.set(
+					Distance * Math.sin(rotate) + Point.x,
+					Distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
+					Distance * Math.cos(rotate) + Point.z);
+					*/
+				cameraArray[i].lookAt(Point);
+			}
+		}
+	});
+
+	Object.defineProperty(this, 'addAround', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: (deltaDegrees) => {
+			camera.Around = (camera.Around + deltaDegrees) % 360;
+			if (camera.Around > 180) camera.Around -= 360;
+			else if (camera.Around < -180) camera.Around += 360;
+			this._camera_position(view.ViewingAngleDegrees, camera.Point, camera.Elevation, camera.Around);
+		}
+	});
+
+	Object.defineProperty(this, 'addElevation', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: (deltaDegrees) => {
+			camera.Elevation += deltaDegrees;
+			if (camera.Elevation > 90) camera.Elevation = 90;
+			else if (camera.Elevation < -90) camera.Elevation = -90;
+
+			this._camera_position(view.ViewingAngleDegrees, camera.Point, camera.Elevation, camera.Around);
+		}
+	});
+
+	Object.defineProperty(this, 'around', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: (degrees) => {
+			camera.Around = degrees % 360;
+			if (camera.Around > 180) camera.Around -= 360;
+			else if (camera.Around < -180) camera.Around += 360;
+			this._camera_position(view.ViewingAngleDegrees, camera.Point, camera.Elevation, camera.Around);
+		}
+	});
+
+	Object.defineProperty(this, 'elevation', {
+		writable: false,
+		configurable: false,
+		enumerable: false,
+		value: (degrees) => {
+			camera.Elevation = degrees;
+			if (camera.Elevation > 90) camera.Elevation = 90;
+			else if (camera.Elevation < -90) camera.Elevation = -90;
+			this._camera_position(view.ViewingAngleDegrees, camera.Point, camera.Elevation, camera.Around);
+		}
+	});
+
+	let latestShader = undefined;
 	const useProgram = gl.useProgram;
 	gl.useProgram = program => {
-		if (shader.program !== program) latestProgram = program;
+		if (shader.program !== program) latestShader = program;
 		useProgram.call(gl, program);
 	};
+
+	this.calibration({ SlantAngleDegrees, ViewCount, DPL, Offset });
 
 	return this;
 };

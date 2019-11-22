@@ -48,7 +48,7 @@
         import WakeLock from './util/wakelock.js';
         import Download from './util/download.js';
 
-        var scene, scene2;
+        var scene;
         var lenti;
         const game = {};
 
@@ -64,7 +64,6 @@
         renderFilter.active = renderFilter.middle;
 
         function update() {
-            // lenti.render(scene2);
             lenti.render(scene, [true, true, false], renderFilter.active);
 
             requestAnimationFrame(update);
@@ -89,7 +88,7 @@
             const lens = {
                 SlantAngleDegrees: 105.674,
                 ViewCount: 17,
-                DPL: 4.629,
+                DPL: 7.709,
                 Offset: 0.064,
                 AngleOfViewDegrees: 10,
             };
@@ -113,6 +112,7 @@
                 Point: new THREE.Vector3(0, 5, 0),
                 Distance: 100,
                 Elevation: 35,
+                Around: 0,
             };
 
             lenti = new Lenti(THREE, renderer, lens, view, camera);
@@ -121,8 +121,6 @@
 
             const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
             scene.add(light);
-
-            // scene2 = new THREE.Scene();
 
             const useMMD = true;
             const model = window.location.search.substring(1);
@@ -250,6 +248,52 @@
             document.querySelector('#minimize').addEventListener('click', () => {
                 const table = document.querySelector('#calibration');
                 table.style.display = table.style.display == 'none' ? 'block' : 'none';
+            }, false);
+
+
+            const touching = {};
+            // タッチスクロール
+            content.addEventListener('touchstart', event => {
+                event.preventDefault();
+                for (const t of event.changedTouches) {
+                    if (!(t.identifier in touching)) {
+                        touching[t.identifier] = { start: [t.pageX, t.pageY] };
+                    }
+                    touching[t.identifier].current = [t.pageX, t.pageY];
+                }
+            }, false);
+            content.addEventListener('touchend', event => {
+                event.preventDefault();
+                for (const t of event.changedTouches) {
+                    if (t.identifier in touching) {
+                        delete touching[t.identifier];
+                    } else {
+                        console.log('touchend error');
+                    }
+                }
+            }, false);
+            content.addEventListener('touchcancel', event => {
+                event.preventDefault();
+                for (const t of event.changedTouches) {
+                    if (t.identifier in touching) {
+                        delete touching[t.identifier];
+                    } else {
+                        console.log('touchcancel error');
+                    }
+                }
+            }, false);
+            content.addEventListener('touchmove', event => {
+                event.preventDefault();
+                for (const t of event.changedTouches) {
+                    if (t.identifier in touching) {
+                        const s = touching[t.identifier];
+                        lenti.addAround((t.pageX - s.current[0]) / -5);
+                        lenti.addElevation((t.pageY - s.current[1]) / 5);
+                        s.current = [t.pageX, t.pageY];
+                    } else {
+                        console.log('touchmove error');
+                    }
+                }
             }, false);
 
             update();
