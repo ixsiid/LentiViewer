@@ -87,8 +87,8 @@
 
             const lens = {
                 SlantAngleDegrees: 105.674,
-                ViewCount: 17,
-                DPL: 7.709,
+                ViewCount: 24,
+                DPL: 4.633,
                 Offset: 0.064,
                 AngleOfViewDegrees: 10,
             };
@@ -106,7 +106,7 @@
             const view = {
                 Width: 15,  // カメラが映す幅
                 Aspect: width / height,
-                ViewingAngleDegrees: 30, // 観察視野角 ⇒ 立体度に影響
+                ViewingAngleDegrees: 20, // 観察視野角 ⇒ 立体度に影響
             };
             const camera = {
                 Point: new THREE.Vector3(0, 5, 0),
@@ -122,10 +122,19 @@
             const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
             scene.add(light);
 
-            const useMMD = true;
             const model = window.location.search.substring(1);
+            // const model = "miku";
 
             switch (model) {
+                case "miku":
+                    new MMDLoader().load("miku/miku.pmx", 
+                        mesh => {
+                            scene.add(mesh);
+                        },
+                        xhr => console.log((xhr.loaded / xhr.total * 100) + '% loaded'),
+                        xhr => console.log('An error happened')
+                    );
+                    break;
                 case "pika":
                     const model = 'mmd/model/picachu_dance_v2.pmx';
                     const anime = 'mmd/motion/dramatsurugi.vmd';
