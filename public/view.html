@@ -85,13 +85,42 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(width, height);
 
-            const lens = {
-                SlantAngleDegrees: 105.674,
-                ViewCount: 24,
-                DPL: 4.633,
-                Offset: 0.064,
-                AngleOfViewDegrees: 10,
-            };
+            const lens = ([{ //横画面用（剥がし済み
+                SlantAngleDegrees: 9.9,
+                ViewCount: 17,
+                DPL: 34.28,
+                Offset: 0.68,
+                AngleOfViewDegrees: 5,
+                vertical: -1,
+            },{ // 縦画面用
+                SlantAngleDegrees: 99.4,
+                ViewCount: 17,
+                DPL: 5.97,
+                Offset: 0.5,
+                AngleOfViewDegrees: 5,
+                vertical: 0,
+            },{ // PC版貼り付け専用端末
+                SlantAngleDegrees: -14,
+                ViewCount: 17,
+                DPL: 30.55,
+                Offset: 0.65,
+                AngleOfViewDegrees: 5,
+                vertical: -1,
+            },{ // ノートPC要
+                SlantAngleDegrees: 81.45,
+                ViewCount: 31,
+                DPL: 2.23,
+                Offset: 0,
+                AngleOfViewDegrees: 5,
+                vertical: 0,
+            },{ // ノートPC 40LPI
+                SlantAngleDegrees: 81.45,
+                ViewCount: 31,
+                DPL: 4.2,
+                Offset: 0.5,
+                AngleOfViewDegrees: 5,
+                vertical: 0,
+            }])[2];
 
             const load = storage => {
                 Object.keys(storage).map(x => lens[x] = parseFloat(storage.getItem(x)));
@@ -104,10 +133,15 @@
             //load(window.localStorage);
 
             const view = {
-                Width: 15,  // カメラが映す幅
+                Width: 20,  // カメラが映す幅
                 Aspect: width / height,
-                ViewingAngleDegrees: 20, // 観察視野角 ⇒ 立体度に影響
+                ViewingAngleDegrees: 38, // 観察視野角 ⇒ 立体度に影響
             };
+
+            // const model = window.location.search.substring(1);
+            let model = "miku";
+            model = "";
+
             const camera = {
                 Point: new THREE.Vector3(0, 5, 0),
                 Distance: 100,
@@ -115,19 +149,20 @@
                 Around: 0,
             };
 
-            lenti = new Lenti(THREE, renderer, lens, view, camera);
+            if (model == "miku") camera.Point = new THREE.Vector3(0, 18.5, 0);
+
+            const vertical = lens.vertical;
+            lenti = new Lenti(THREE, renderer, lens, view, camera, vertical);
 
             scene = new THREE.Scene();
 
             const light = new THREE.AmbientLight(0xa0a0a0); // soft white light
             scene.add(light);
 
-            const model = window.location.search.substring(1);
-            // const model = "miku";
 
             switch (model) {
                 case "miku":
-                    new MMDLoader().load("miku/miku.pmx", 
+                    new MMDLoader().load("miku/miku.pmx",
                         mesh => {
                             scene.add(mesh);
                         },
@@ -195,10 +230,11 @@
                         });
                     });
 
-                    document.querySelector('#calibration').style.display = 'block';
+                    // document.querySelector('#calibration').style.display = 'block';
 
                     break;
                 default:
+                    renderer.setClearColor(0x7f7f7f, 0);
                     const geometry = new THREE.BoxGeometry(5, 5, 5);
                     const material = new THREE.MeshNormalMaterial();
                     const box = new THREE.Mesh(geometry, material);
@@ -296,8 +332,15 @@
                 for (const t of event.changedTouches) {
                     if (t.identifier in touching) {
                         const s = touching[t.identifier];
-                        lenti.addAround((t.pageX - s.current[0]) / -5);
-                        lenti.addElevation((t.pageY - s.current[1]) / 5);
+                        const dx = (t.pageX - s.current[0]);
+                        const dy = (t.pageY - s.current[1]);
+                        if (vertical % 2 == 0) {
+                            lenti.addAround((1 - vertical) * dx / 5);
+                            lenti.addElevation((1 - vertical) * dy / 5);
+                        } else {
+                            lenti.addAround(vertical * dy / 5);
+                            lenti.addElevation(vertical * -dx / 5);
+                        }
                         s.current = [t.pageX, t.pageY];
                     } else {
                         console.log('touchmove error');

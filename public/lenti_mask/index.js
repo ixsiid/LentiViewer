@@ -28,7 +28,7 @@ void main(void) {
 function Lenti(THREE, threeRenderer,
 	{ SlantAngleDegrees, ViewCount, DPL, Offset, AngleOfViewDegrees },
 	{ Width, Aspect, ViewingAngleDegrees },
-	{ Point, Distance, Elevation, Around }) {
+	{ Point, Distance, Elevation, Around }, Vertical = 0) {
 	const gl = threeRenderer.getContext();
 	gl.enable(gl.STENCIL_TEST);
 	gl.clearStencil(255);
@@ -137,9 +137,13 @@ function Lenti(THREE, threeRenderer,
 			camera.Elevation = Elevation;
 			camera.Around = Around;
 
+			const rot = new THREE.Matrix4().makeRotationZ(Vertical * -Math.PI/2);
+
 			for (let i = 0; i < lenti.count; i++) {
 				cameraArray.push(new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect));
 				// cameraArray.push(new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect));
+
+				cameraArray[i].projectionMatrix.multiply(rot);
 			}
 
 			this._camera_position(ViewingAngleDegrees, Point, Elevation, Around);
@@ -161,7 +165,7 @@ function Lenti(THREE, threeRenderer,
 			const mask_camera = mat4.ortho([], -1, 1, -1, 1, -1, 1);
 
 			gl.depthMask(false);
-			gl.colorMask(false, false, false, false);
+			//gl.colorMask(false, false, false, false);
 
 			gl.useProgram(shader.program);
 
@@ -228,13 +232,57 @@ function Lenti(THREE, threeRenderer,
 			const distance = k / Math.tan(AngleOfViewDegrees / 180 * Math.PI / 2);
 			const distance_xy = distance * Math.cos(Elevation / 180 * Math.PI);
 
-			for (let i = 0; i < cameraArray.length; i++) {
-				const rotate = -1 * (viewAngleRadians / 2 - i * dViewAngleRadians);
+			const polar = {
+				cos: Math.cos(Elevation / 180 * Math.PI),
+				sin: Math.sin(Elevation / 180 * Math.PI),
+			};
 
-				cameraArray[i].position.set(
-					distance_xy * Math.sin(rotate + Around / 180 * Math.PI) + Point.x,
-					distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
-					distance_xy * Math.cos(rotate + Around / 180 * Math.PI) + Point.z);
+			const around = {
+				cos: Math.cos(Around / 180 * Math.PI),
+				sin: Math.sin(Around / 180 * Math.PI),
+			};
+
+			const up = [
+				Point.x,
+				Point.y + distance * polar.cos,
+				Point.z - distance * polar.sin
+			];
+
+			for (let i = 0; i < cameraArray.length; i++) {
+				const rotate = viewAngleRadians / 2 - i * dViewAngleRadians;
+				//const k = Vertical % 2 == 1 ? -1 : 1;
+				const k = SlantAngleDegrees < 0 ? -1 : 1;
+
+				const rot = {
+					cos: Math.cos(k * rotate),
+					sin: Math.sin(k * rotate)
+				};
+
+
+				//cameraArray[i].position.set(
+				//	distance_xy * Math.sin(rotate + Around / 180 * Math.PI) + Point.x,
+				//	distance * Math.sin(Elevation / 180 * Math.PI) + Point.y,
+				//	distance_xy * Math.cos(rotate + Around / 180 * Math.PI) + Point.z);
+
+				// https://ja.wikipedia.org/wiki/%E5%9B%9E%E8%BB%A2%E8%A1%8C%E5%88%97
+				// Ry(rotate) * Rx * Ry(center)
+
+				/*
+				const pos = [
+					Point.x - distance * (rot.sin * around.cos + rot.cos * polar.cos * around.sin),
+					Point.y + distance * rot.cos * polar.sin,
+					Point.z - distance * (rot.sin * around.sin - rot.cos * polar.cos * around.cos)
+				];
+				/**/
+
+				const pos = [
+					Point.x - distance * (around.sin * rot.cos + around.cos * polar.cos * rot.sin),
+					Point.y + distance * around.cos * polar.sin,
+					Point.z - distance * (around.sin * rot.sin - around.cos * polar.cos * rot.cos)
+				];
+
+				cameraArray[i].position.set(...pos);
+				cameraArray[i].up.set(...up);
 
 				/*
 				const cm = new THREE.OrthographicCamera(-k, k, k / Aspect, -k / Aspect);
