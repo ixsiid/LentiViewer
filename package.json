@@ -19,6 +19,7 @@
   "homepage": "https://github.com/ixsiid/LentiViewer#readme",
   "dependencies": {
     "eslint": "^6.5.1",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "ws": "^7.2.1"
   }
 }

@@ -87,19 +87,6 @@
             background-color: lightgray;
         }
 
-        li:first-child {
-            padding: 0.5vh;
-            border: none;
-            font-weight: bold;
-            color:black;
-            font-size: 2vh;
-            background-color: inherit;
-        }
-
-        li:first-child a {
-            text-decoration: none;
-        }
-
         li a:visited {
             color: inherit;
         }
@@ -123,6 +110,13 @@
         #bottom2 {
             height: 100px;
             background-color: red;
+        }
+
+        .list_section_title {
+            background-color: lightgray;
+            color: white;
+            font-weight: bold;
+            text-align: center;
         }
     </style>
     <script>
@@ -171,16 +165,28 @@
         tab.show = () => { tab.shown = false; tab(); }
         tab.hide = () => { tab.shown = true; tab(); }
     </script>
+    <script type="module">
+		import WakeLock from './util/wakelock.js';
+
+		window.addEventListener('load', () => {
+			document.querySelector('#wakelock').addEventListener('click', () => {
+                const result = WakeLock();
+                document.querySelector('#wakelock').innerText = result ? 'Running' : 'Paused';
+            }, false);
+		}, false);
+    </script>
 </head>
 
 <body>
     <div id="image">
         <p id="tab">&#x2af6;</p>
         <ul id="list">
+            <li class="list_section_title">Commands</li>
             <li><a href="calibration.html">Calibration</a></li>
             <li><a href="view.html">View</a></li>
-            <li><a href="view.html?calibration">Calibration</a></li>
-            <li><a href="photo.html">Photo</a></li>
+            <li class="list_section_title">WakeLock </li>
+            <li id="wakelock">Paused</li>
+            <li class="list_section_title">Images</li>
         </ul>
     </div>
     <p id="view_root"><img id="view" src="" /></p>

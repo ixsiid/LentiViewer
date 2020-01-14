@@ -48,6 +48,8 @@
         import WakeLock from './util/wakelock.js';
         import Download from './util/download.js';
 
+        import RemoteController from './util/remote.js';
+
         var scene;
         var lenti;
         const game = {};
@@ -92,35 +94,42 @@
                 Offset: 0.68,
                 AngleOfViewDegrees: 5,
                 vertical: -1,
-            },{ // 縦画面用
+            }, { // 縦画面用
                 SlantAngleDegrees: 99.4,
                 ViewCount: 17,
                 DPL: 5.97,
                 Offset: 0.5,
                 AngleOfViewDegrees: 5,
                 vertical: 0,
-            },{ // PC版貼り付け専用端末
+            }, { // PC版貼り付け専用端末
                 SlantAngleDegrees: -14,
                 ViewCount: 17,
                 DPL: 30.55,
                 Offset: 0.65,
                 AngleOfViewDegrees: 5,
                 vertical: -1,
-            },{ // ノートPC要
+            }, { // ノートPC要
                 SlantAngleDegrees: 81.45,
                 ViewCount: 31,
                 DPL: 2.23,
                 Offset: 0,
                 AngleOfViewDegrees: 5,
                 vertical: 0,
-            },{ // ノートPC 40LPI
+            }, { // ノートPC 40LPI
                 SlantAngleDegrees: 81.45,
                 ViewCount: 31,
                 DPL: 4.2,
                 Offset: 0.5,
                 AngleOfViewDegrees: 5,
                 vertical: 0,
-            }])[2];
+            }, { // 4倍右上
+                SlantAngleDegrees: -8.97,
+                ViewCount: 17,
+                DPL: 37.7,
+                Offset: -0.44,
+                AngleOfViewDegrees: 5,
+                vertical: 1,
+            }])[5];
 
             const load = storage => {
                 Object.keys(storage).map(x => lens[x] = parseFloat(storage.getItem(x)));
@@ -287,6 +296,8 @@
                     document.querySelector('#calibration').style.display = 'block';
                     break;
             }
+
+            const c = new RemoteController('ws://10.18.174.44:11388', { place: [1, 0] }, lenti, lens);
 
             document.querySelector('#wakelock').addEventListener('click', WakeLock, false);
             document.querySelector('#download').addEventListener('click', () => Download(document.querySelector('canvas')), false);

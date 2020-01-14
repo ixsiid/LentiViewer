@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Remote</title>
+    <script type="module">
+        import RemoteController from './util/manager.js';
+
+        window.addEventListener('load', async () => {
+            const r = new RemoteController('ws://localhost:11388', {
+                ids: data => {
+                    const target = document.querySelector('#target');
+                    const value = target.value;
+                    const option = [
+                        target.firstElementChild,
+                    ];
+                    option.push(...data.value.map(x => {
+                        const op = document.createElement('option');
+                        op.textContent = `Place: [${x.place[0]}, ${x.place[1]}]`;
+                        op.value = x.id;
+                        return op;
+                    }));
+                    target.innerHTML = '';
+                    option.forEach(x => target.appendChild(x));
+                    target.value = value;
+                }
+            });
+
+            [
+                'SlantAngleDegrees',
+                'ViewCount',
+                'DPL',
+                'Offset',
+                'AngleOfViewDegrees'
+            ].map(x => {
+                const target = document.querySelector(`#${x}`);
+                if (target === null) return;
+
+                // target.firstElementChild.innerText = lens[x].toFixed(3);
+                [].reduce.call(target.children, (_, b) => {
+                    const d = parseFloat(b.innerText);
+                    b.addEventListener('click', () => {
+                        const value = {};
+                        value[x] = d;
+                        const t = document.querySelector('#target').value;
+
+                        r.calibration(t, value);
+                    }, false);
+                });
+            });
+
+            setInterval(function ids() {
+                r.ids()
+                return ids;
+            }, 10000);
+        });
+    </script>
+</head>
+
+<body>
+    <div id="calibration">
+        <select size="10" name="target" id="target">
+            <option value="0" selected>Broadcast</option>
+        </select>
+        <table>
+            <tr id="DPL">
+                <td>value</td>
+                <td><button>-0.001</button></td>
+                <td><button>-0.01</button></td>
+                <td><button>-0.1</button></td>
+                <td><button>+0.1</button></td>
+                <td><button>+0.01</button></td>
+                <td><button>+0.001</button></td>
+            </tr>
+            <tr id="SlantAngleDegrees">
+                <td>value</td>
+                <td><button>-0.001</button></td>
+                <td><button>-0.01</button></td>
+                <td><button>-0.1</button></td>
+                <td><button>+0.1</button></td>
+                <td><button>+0.01</button></td>
+                <td><button>+0.001</button></td>
+            </tr>
+            <tr id="Offset">
+                <td>value</td>
+                <td><button>-0.001</button></td>
+                <td><button>-0.01</button></td>
+                <td><button>-0.1</button></td>
+                <td><button>+0.1</button></td>
+                <td><button>+0.01</button></td>
+                <td><button>+0.001</button></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td colspan="3"><button id="load">Load</button></td>
+                <td colspan="3"><button id="save">Save</button></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td colspan="2"><button id="rotation">Rotation</button></td>
+                <td colspan="2"><button id="vibration">Vibration</button></td>
+                <td colspan="2"><button id="download">download</button></td>
+            </tr>
+            <tr id="filter">
+                <td><button id="one">One</button></td>
+                <td></td>
+                <td><button id="even">Even</button></td>
+                <td><button id="five">Five</button></td>
+                <td></td>
+                <td><button id="all">All</button></td>
+                <td><button id="middle">Middle</button></td>
+            </tr>
+        </table>
+    </div>
+</body>
+
+</html>

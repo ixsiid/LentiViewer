@@ -2,52 +2,48 @@
 <html>
 
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Photo</title>
-    <style>
-	    * {
-		    margin: 0;
-		    padding: 0;
-	    }
+	<meta charset="UTF-8">
+	<link rel="manifest" href="/manifest.json">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<title>Photo</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+		}
 
-	    body {
-		    width: 100vw;
-		    height: 100vh;
-	    }
+		body {
+			width: 100vw;
+			height: 100vh;
+		}
 
-	    #straight {
-		    width: 100vw;
-		    height: 100vh;
-		    background-image: url('image/tree_vertical.png');
-		    background-position: center center;
-		    background-size: 100vw 100vh;
-	    }
+		#straight {
+			width: 100vw;
+			height: 100vh;
+			background-image: url('image/camera_macro.png');
+			background-position: center center;
+			background-size: 100vw 100vh;
+		}
 
-	    #rotate {
-		    width: 100vh;
-		    height: 100vw;
-		    position: absolute;
-		    top: calc(50vh - 50vw);
-		    left: calc(50vw - 50vh);
-		    transform: rotate(-90deg);
-		    background-image: url('image/PC180004_lenti.png');
-		    background-position: center center;
-		    background-size: 100vh 100vw;
-	    }
+		#back {
+			position: fixed;
+			right: 2em;
+			bottom: 2em;
+		}
 
-	    #back {
-		    position: fixed;
-		    right: 2em;
-		    bottom: 2em;
-	    }
 	</style>
+	<script type="module">
+		import WakeLock from './util/wakelock.js';
+
+		window.addEventListener('load', () => {
+			document.querySelector('#wakelock').addEventListener('click', WakeLock, false);
+		}, false);
+	</script>
 </head>
 
 <body>
 	<div id="straight"></div>
-	<p id="back"><a href="app.html">App</a></p>
+	<p id="back"><a href="app.html">App</a> <button id="wakelock">WakeLock</button></p>
 </body>
 
 </html>
