@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        html,
+        body,
+        #content {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #content {
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        #lens {
+            position: fixed;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            z-index: 2000;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        table button {
+            margin: 3px;
+            padding: 3px;
+        }
+
+        #angle {
+            position: fixed;
+            z-index: 1000;
+        }
+
+        #angle li {
+            width: 100vw;
+            height: 1px;
+            background-color: red;
+        }
+
+        #Offset {
+            z-index: 1000;
+            color: white;
+            position: fixed;
+            bottom: 2em;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
+    </style>
+
+    <script src="util/switch.js"></script>
+
+    <script type="module">
+        import { quat, mat4, vec3 } from './util/gl-matrix/src/index.js';
+        import PlaneFactory from './lenti_mask/renderer/plane.js';
+
+        import { Calibration } from './lenti_mask/index.js';
+
+        const lens = {};
+        const refresh = [];
+        refresh.do = () => {
+            refresh.forEach(x => x());
+            if (refresh.running) requestAnimationFrame(refresh.do);
+        };
+        refresh.running = false;
+        refresh.run = () => {
+            refresh.running = true;
+            refresh.do();
+        };
+        refresh.stop = () => refresh.running = false;
+
+        const storage = window.localStorage;
+
+        window.addEventListener('load', async () => {
+            const content = document.querySelector('#content');
+            const { width, height } = (() => {
+                const bounds = content.getClientRects()[0];
+                Object.assign(content, {
+                    width: bounds.width * window.devicePixelRatio,
+                    height: bounds.height * window.devicePixelRatio
+                });
+                return { width: bounds.width, height: bounds.height };
+            })();
+
+            Object.assign(lens, { // 4倍右上
+                SlantAngleDegrees: -8.738,
+                ViewCount: 17,
+                DPL: 38.671,
+                Offset: 0.195,
+            });
+
+            const load = storage => {
+                Object.keys(storage).map(x => lens[x] = parseFloat(storage.getItem(x)));
+            };
+
+            const save = storage => {
+                Object.keys(lens).map(x => storage.setItem(x, lens[x]));
+            };
+
+            //load(window.localStorage);
+
+            const calibration = new Calibration(content.getContext('webgl', { stencil: true }));
+
+            refresh.push(() => {
+                calibration.calibration(lens);
+                calibration.render();
+            });
+
+
+            Object.keys(lens).map(x => {
+                [].forEach.call(document.querySelectorAll(`.${x} button`), button => {
+                    const d = parseFloat(button.innerText);
+                    if (!d) return;
+                    button.addEventListener('click', () => {
+                        lens[x] += d;
+
+                        if (!refresh.running) refresh.do();
+                    }, false);
+                });
+            });
+
+            refresh.push(() => {
+                Object.keys(lens).map(x => {
+                    const target = document.querySelector(`.${x} .value`);
+                    if (target !== null) target.innerText = lens[x].toFixed(3);
+                });
+            });
+
+            document.querySelector('#minimize').addEventListener('click', () => {
+                const table = document.querySelector('#calibration');
+                table.style.display = table.style.display == 'none' ? 'block' : 'none';
+            }, false);
+
+            {
+                const k = [0, 1];
+                const angle = document.querySelector('#angle');
+                while (k[1] < 200) {
+                    const t = k.reduce((a, b) => a + b);
+
+                    const li = document.createElement('li');
+                    li.style.marginBottom = `${t / 3}px`;
+                    angle.appendChild(li);
+
+                    k[0] = k[1];
+                    k[1] = t;
+                }
+            }
+
+            refresh.push(() => {
+                lens.Offset = Math.floor((lens.Offset % 1) * 1000) / 1000;
+                [].map.call(document.querySelectorAll('#angle li'), x => x.style.transform = `rotate(${lens.SlantAngleDegrees}deg)`);
+            });
+
+
+            const auto_rotate = () => lens.Offset += 0.045;
+            refresh.unshift(auto_rotate);
+            document.querySelector('#auto_rotate').addEventListener('click', () => {
+                if (refresh.indexOf(auto_rotate) < 0) refresh.unshift(auto_rotate);
+                refresh.run();
+            }, false);
+
+            [].forEach.call(document.querySelectorAll('.Offset button'), x => {
+                if (x.id == 'auto_rotate') return;
+                x.addEventListener('click', () => {
+                    refresh.running = false;
+                    const p = refresh.indexOf(auto_rotate);
+                    if (p >= 0) refresh.splice(p, 1);
+                }, false);
+            });
+
+            document.querySelector('#green_purple').addEventListener('click', () => {
+                calibration.switch();
+            }, false);
+
+            refresh.run();
+        }, false);
+    </script>
+</head>
+
+<body>
+    <ul id="angle"></ul>
+    <table id="lens">
+        <tr class="DPL">
+            <td><button>-0.01</button></td>
+            <td><button>-0.1</button></td>
+            <td><button>+0.1</button></td>
+            <td><button>+0.01</button></td>
+        </tr>
+        <tr class="DPL">
+            <td><button>-0.001</button></td>
+            <td colspan="2"><span class="value">DPL</span></td>
+            <td><button>+0.001</button></td>
+        </tr>
+        <tr class="SlantAngleDegrees">
+            <td><button>-0.01</button></td>
+            <td><button>-0.1</button></td>
+            <td><button>+0.1</button></td>
+            <td><button>+0.01</button></td>
+        </tr>
+        <tr class="SlantAngleDegrees">
+            <td><button>-0.001</button></td>
+            <td colspan="2"><span class="value">Angle</span></td>
+            <td><button>+0.001</button></td>
+        </tr>
+        <tr style="display: none;">
+            <td></td>
+            <td colspan="3"><button id="load">Load</button></td>
+            <td colspan="3"><button id="save">Save</button></td>
+        </tr>
+    </table>
+
+    <table id="Offset">
+        <tr class="Offset">
+            <td><button>-0.005</button></td>
+            <td><button>-0.05</button></td>
+            <td><span class="value">value</span></td>
+            <td><button>+0.05</button></td>
+            <td><button>+0.005</button></td>
+        </tr>
+        <tr>
+            <td><button id="auto_rotate">Auto</button></td>
+            <td><button id="green_purple">G/P</button></td>
+        </tr>
+    </table>
+
+    <div id="navi">
+        <p style="display: none;"><a href="app.html">App</a></p style="display: none;">
+        <p style="display: none;"><button id="minimize">Minimize</button></p style="display: none;">
+    </div>
+    <canvas id="content"></canvas>
+</body>
+
+</html>

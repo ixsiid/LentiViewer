@@ -8,7 +8,7 @@
         import RemoteController from './util/manager.js';
 
         window.addEventListener('load', async () => {
-            const r = new RemoteController('ws://localhost:11388', {
+            const r = new RemoteController('ws://10.18.174.86:32282', {
                 ids: data => {
                     const target = document.querySelector('#target');
                     const value = target.value;
@@ -17,14 +17,34 @@
                     ];
                     option.push(...data.value.map(x => {
                         const op = document.createElement('option');
-                        op.textContent = `Place: [${x.place[0]}, ${x.place[1]}]`;
+                        op.textContent = `${x.id}`;
                         op.value = x.id;
                         return op;
                     }));
                     target.innerHTML = '';
                     option.forEach(x => target.appendChild(x));
                     target.value = value;
-                }
+                },
+                images: data => {
+                    const images = document.querySelector('#images');
+                    images.innerHTML = '';
+                    data.value.forEach(x => {
+                        const op = document.createElement('option');
+                        op.textContent = `${x}`;
+                        op.value = x;
+                        images.appendChild(op);
+                    });
+                },
+                panels: data => {
+                    const panels = document.querySelector('#panels');
+                    panels.innerHTML = '';
+                    data.value.forEach(x => {
+                        const op = document.createElement('option');
+                        op.textContent = `(${x.id}): [${x.place[0]}, ${x.place[1]}]`;
+                        op.value = x;
+                        panels.appendChild(op);
+                    });
+                },
             });
 
             [
@@ -50,9 +70,46 @@
                 });
             });
 
-            setInterval(function ids() {
-                r.ids()
-                return ids;
+            (size => {
+                const table = document.querySelector('#place');
+                table.innerHTML = '';
+                for (let y = 0; y < size[1]; y++) {
+                    const tr = document.createElement('tr');
+                    for (let x = 0; x < size[0]; x++) {
+                        const td = document.createElement('td');
+                        const button = document.createElement('button');
+                        const p = [x, y];
+                        button.textContent = p.join(',');
+                        button.addEventListener('click', () => {
+                            r.send('place', {
+                                target: document.querySelector('#target').value,
+                                value: p,
+                            });
+                        }, false);
+                        td.appendChild(button);
+                        tr.appendChild(td);
+                    }
+                    table.appendChild(tr);
+                }
+            })([2, 2]);
+
+            [
+                ['show', () => ({ value: document.querySelector('#images').value })],
+                ['hide', () => ({})],
+                ['ping', () => ({})],
+                ['reregist', () => ({})],
+                ['reload', () => ({})]
+            ].forEach(x => {
+                document.querySelector(`#${x[0]}`).addEventListener('click', _ => {
+                    r.send(x[0], Object.assign({
+                        target: document.querySelector('#target').value
+                    }, x[1]()));
+                }, false);
+            });
+
+            setInterval(function refresh() {
+                ['ids', 'panels', 'images'].map(x => r.send(x));
+                return refresh;
             }, 10000);
         });
     </script>
@@ -61,8 +118,21 @@
 <body>
     <div id="calibration">
         <select size="10" name="target" id="target">
-            <option value="0" selected>Broadcast</option>
+            <option value="any" selected>Broadcast</option>
         </select>
+        <select size="10" name="panels" id="panels"></select>
+        <select size="10" name="images" id="images">
+        </select>
+        <button id="show">Show</button>
+        <button id="hide">Hide</button>
+        <button id="ping">Ping</button>
+        <table>
+            <caption>Place</caption>
+            <tbody id="place"></tbody>
+        </table>
+        <button id="reregist">Reregist</button>
+        <button id="reload">Reload</button>
+        </table>
         <table>
             <tr id="DPL">
                 <td>value</td>

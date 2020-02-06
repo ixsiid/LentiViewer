@@ -137,7 +137,7 @@ function Lenti(THREE, threeRenderer,
 			camera.Elevation = Elevation;
 			camera.Around = Around;
 
-			const rot = new THREE.Matrix4().makeRotationZ(Vertical * -Math.PI/2);
+			const rot = new THREE.Matrix4().makeRotationZ(Vertical * -Math.PI / 2);
 
 			for (let i = 0; i < lenti.count; i++) {
 				cameraArray.push(new THREE.PerspectiveCamera(AngleOfViewDegrees, Aspect));
@@ -165,7 +165,7 @@ function Lenti(THREE, threeRenderer,
 			const mask_camera = mat4.ortho([], -1, 1, -1, 1, -1, 1);
 
 			gl.depthMask(false);
-			//gl.colorMask(false, false, false, false);
+			gl.colorMask(false, false, false, false);
 
 			gl.useProgram(shader.program);
 
@@ -357,4 +357,7 @@ function Lenti(THREE, threeRenderer,
 	return this;
 };
 
+
+
 export default Lenti;
+export { default as Calibration } from './calibration.js';

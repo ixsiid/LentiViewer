@@ -1,3 +1,7 @@
+/**
+ * トーストを表示する
+ * @param {string} - 表示する文字列
+ */
 export default text => {
 	const toast = document.createElement('pre');
 	Object.assign(toast.style, {

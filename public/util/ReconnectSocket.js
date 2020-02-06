@@ -50,8 +50,8 @@ class ReconnectSocket {
 		});
 	}
 
-	send(data) {
-		this.socket.send(JSON.stringify(data));
+	send(command, params) {
+		this.socket.send(JSON.stringify(Object.assign({ command }, params)));
 	}
 }
 

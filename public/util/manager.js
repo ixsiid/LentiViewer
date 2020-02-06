@@ -9,14 +9,16 @@ class Manager extends ReconnectSocket {
 	}
 
 	ids() {
-		this.send({ command: 'ids' });
+		this.send('ids');
 	}
 
 	calibration(target, value) {
-		this.send({ command: 'calibration', target, value});
+		this.send('calibration', { target, value });
 	}
 
-
+	images() {
+		this.send('images');
+	}
 }
 
 export default Manager;
